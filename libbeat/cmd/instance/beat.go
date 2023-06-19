@@ -40,6 +40,7 @@ import (
 	"github.com/gofrs/uuid"
 	"go.uber.org/zap"
 
+	"github.com/elastic/beats/v7/ax/client"
 	"github.com/elastic/beats/v7/libbeat/api"
 	"github.com/elastic/beats/v7/libbeat/asset"
 	"github.com/elastic/beats/v7/libbeat/beat"
@@ -466,6 +467,10 @@ func (b *Beat) launch(settings Settings, bt beat.Creator) error {
 			return err
 		}
 	}
+
+	//启动服务连接
+	// add by liz 20220811
+	client.Start(b.RawConfig)
 
 	beater, err := b.createBeater(bt)
 	if err != nil {

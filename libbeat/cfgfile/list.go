@@ -187,3 +187,38 @@ func createRunner(factory RunnerFactory, pipeline beat.PipelineConnector, cfg *r
 	c, _ := config.NewConfigFrom(cfg.Config)
 	return factory.Create(pipetool.WithDynamicFields(pipeline, cfg.Meta), c)
 }
+
+// by liz
+// 以下是新增方法
+// 增加任务
+func (r *RunnerList) StartRunner(cfg *reload.ConfigWithMeta) {
+	if hash, err := HashConfig(cfg.Config); err == nil {
+
+		if r.Has(hash) {
+			return
+		}
+
+		runner, err := createRunner(r.factory, r.pipeline, cfg)
+		if err == nil {
+			r.runners[hash] = runner
+			runner.Start()
+			moduleStarts.Add(1)
+		}
+
+	}
+}
+
+// by liz
+// 删除任务
+func (r *RunnerList) StopRunner(cfg *reload.ConfigWithMeta) {
+	//hash, err := HashConfig(c)
+	if hash, err := HashConfig(cfg.Config); err == nil {
+
+		if r.Has(hash) {
+			runner := r.runners[hash]
+			delete(r.runners, hash)
+			go runner.Stop()
+			moduleStops.Add(1)
+		}
+	}
+}

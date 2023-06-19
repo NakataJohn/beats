@@ -158,6 +158,15 @@ func (rl *Reloader) Check(runnerFactory RunnerFactory) error {
 	return nil
 }
 
+// by liz
+// 提供外部调用reload
+
+// var runnerlist *RunnerList
+
+func MonitorList() *RunnerList {
+	return new(RunnerList)
+}
+
 // Run runs the reloader
 func (rl *Reloader) Run(runnerFactory RunnerFactory) {
 	logp.Info("Config reloader started")

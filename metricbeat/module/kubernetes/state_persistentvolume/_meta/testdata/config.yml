@@ -1,4 +1,0 @@
-type: http
-url: "/metrics"
-suffix: plain
-path: "../_meta/test"

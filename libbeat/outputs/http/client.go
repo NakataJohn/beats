@@ -86,7 +86,7 @@ func newClient(s clientSettings) (*Client, error) {
 	if s.Proxy != nil {
 		proxy = http.ProxyURL(s.Proxy)
 	}
-	logger.Info("HTTP URL: %s", s.URL)
+	logger.Infof("HTTP URL: %s", s.URL)
 	var dialer, tlsDialer transport.Dialer
 	var err error
 
@@ -239,7 +239,7 @@ func (client *Client) BatchPublishEvent(data []publisher.Event) error {
 	}
 	status, _, err := client.request("POST", client.params, events, client.headers)
 	if err != nil {
-		client.logger.Warn("Fail to insert a single event: %s", err)
+		client.logger.Warnf("Fail to insert a single event: %s", err)
 		if err == ErrJSONEncodeFailed {
 			// don't retry unencodable values
 			return nil
@@ -264,7 +264,7 @@ func (client *Client) PublishEvent(data publisher.Event) error {
 	client.logger.Debugf("Publish event: %s", event)
 	status, _, err := client.request("POST", client.params, makeEvent(&event.Content), client.headers)
 	if err != nil {
-		client.logger.Warn("Fail to insert a single event: %s", err)
+		client.logger.Warnf("Fail to insert a single event: %s", err)
 		if err == ErrJSONEncodeFailed {
 			// don't retry unencodable values
 			return nil
@@ -292,7 +292,7 @@ func (conn *Connection) request(method string, params map[string]string, body in
 	}
 
 	if err := conn.encoder.Marshal(body); err != nil {
-		logger.Warn("Failed to json encode body (%v): %#v", err, body)
+		logger.Warnf("Failed to json encode body (%v): %#v", err, body)
 		return 0, nil, ErrJSONEncodeFailed
 	}
 	return conn.execRequest(method, urlStr, conn.encoder.Reader(), headers)
@@ -301,7 +301,7 @@ func (conn *Connection) request(method string, params map[string]string, body in
 func (conn *Connection) execRequest(method, url string, body io.Reader, headers map[string]string) (int, []byte, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
-		logger.Warn("Failed to create request: %v", err)
+		logger.Warnf("Failed to create request: %v", err)
 		return 0, nil, err
 	}
 	if body != nil {
@@ -342,31 +342,30 @@ func (conn *Connection) execHTTPRequest(req *http.Request, headers map[string]st
 func closing(c io.Closer) {
 	err := c.Close()
 	if err != nil {
-		logger.Warn("Close failed with: %v", err)
+		logger.Warnf("Close failed with: %v", err)
 	}
 }
 
 // this should ideally be in enc.go
 func makeEvent(v *beat.Event) map[string]json.RawMessage {
 	// Inline not supported,
-	// HT: https://stackoverflow.com/questions/49901287/embed-mapstringstring-in-go-json-marshaling-without-extra-json-property-inlin
 	type event0 event // prevent recursion
 	e := event{Timestamp: v.Timestamp.UTC(), Fields: v.Fields}
 	b, err := json.Marshal(event0(e))
 	if err != nil {
-		logger.Warn("Error encoding event to JSON: %v", err)
+		logger.Warnf("Error encoding event to JSON: %v", err)
 	}
 
 	var eventMap map[string]json.RawMessage
 	err = json.Unmarshal(b, &eventMap)
 	if err != nil {
-		logger.Warn("Error decoding JSON to map: %v", err)
+		logger.Warnf("Error decoding JSON to map: %v", err)
 	}
 	// Add the individual fields to the map, flatten "Fields"
 	for j, k := range e.Fields {
 		b, err = json.Marshal(k)
 		if err != nil {
-			logger.Warn("Error encoding map to JSON: %v", err)
+			logger.Warnf("Error encoding map to JSON: %v", err)
 		}
 		eventMap[j] = b
 	}

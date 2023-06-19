@@ -1,3 +1,0 @@
-# Auditbeat config for Elastic Agent
----
-auditbeat.modules: [ ]
