@@ -18,9 +18,8 @@
 package tlsmeta
 
 import (
-	dsa2 "crypto/dsa" //nolint:staticcheck // we need to calculate DSA stuff for completeness
-	"crypto/ecdsa"
-	"crypto/rsa"
+	//nolint:staticcheck // we need to calculate DSA stuff for completeness
+
 	"crypto/sha1"
 	"crypto/sha256"
 	cryptoTLS "crypto/tls"
@@ -59,38 +58,41 @@ func AddTLSMetadata(fields mapstr.M, connState cryptoTLS.ConnectionState, durati
 	fields.DeepUpdate(mapstr.M{"tls": tlsFields})
 }
 
+// change code by john
+// delete tls fields
 func CertFields(hostCert *x509.Certificate, verifiedChains [][]*x509.Certificate) (tlsFields mapstr.M) {
-	x509Fields := mapstr.M{}
-	serverFields := mapstr.M{"x509": x509Fields}
+	// x509Fields := mapstr.M{}
+	// serverFields := mapstr.M{"x509": x509Fields}
+	serverFields := mapstr.M{}
 	tlsFields = mapstr.M{"server": serverFields}
 
 	_, _ = serverFields.Put("hash.sha1", fmt.Sprintf("%x", sha1.Sum(hostCert.Raw)))
 	_, _ = serverFields.Put("hash.sha256", fmt.Sprintf("%x", sha256.Sum256(hostCert.Raw)))
 
-	_, _ = x509Fields.Put("issuer.common_name", hostCert.Issuer.CommonName)
-	_, _ = x509Fields.Put("issuer.distinguished_name", hostCert.Issuer.String())
-	_, _ = x509Fields.Put("subject.common_name", hostCert.Subject.CommonName)
-	_, _ = x509Fields.Put("subject.distinguished_name", hostCert.Subject.String())
-	_, _ = x509Fields.Put("serial_number", hostCert.SerialNumber.String())
-	_, _ = x509Fields.Put("signature_algorithm", hostCert.SignatureAlgorithm.String())
-	_, _ = x509Fields.Put("public_key_algorithm", hostCert.PublicKeyAlgorithm.String())
-	_, _ = x509Fields.Put("not_before", hostCert.NotBefore)
+	// _, _ = x509Fields.Put("issuer.common_name", hostCert.Issuer.CommonName)
+	// _, _ = x509Fields.Put("issuer.distinguished_name", hostCert.Issuer.String())
+	// _, _ = x509Fields.Put("subject.common_name", hostCert.Subject.CommonName)
+	// _, _ = x509Fields.Put("subject.distinguished_name", hostCert.Subject.String())
+	// _, _ = x509Fields.Put("serial_number", hostCert.SerialNumber.String())
+	// _, _ = x509Fields.Put("signature_algorithm", hostCert.SignatureAlgorithm.String())
+	// _, _ = x509Fields.Put("public_key_algorithm", hostCert.PublicKeyAlgorithm.String())
+	// _, _ = x509Fields.Put("not_before", hostCert.NotBefore)
 	_, _ = tlsFields.Put("certificate_not_valid_before", hostCert.NotBefore)
-	_, _ = x509Fields.Put("not_after", hostCert.NotAfter)
+	// _, _ = x509Fields.Put("not_after", hostCert.NotAfter)
 	_, _ = tlsFields.Put("certificate_not_valid_after", hostCert.NotAfter)
-	if rsaKey, ok := hostCert.PublicKey.(*rsa.PublicKey); ok {
-		sizeInBits := rsaKey.Size() * 8
-		_, _ = x509Fields.Put("public_key_size", sizeInBits)
-		_, _ = x509Fields.Put("public_key_exponent", rsaKey.E)
-	} else if dsaKey, ok := hostCert.PublicKey.(*dsa2.PublicKey); ok {
-		if dsaKey.Parameters.P != nil {
-			_, _ = x509Fields.Put("public_key_size", len(dsaKey.P.Bytes())*8)
-		} else {
-			_, _ = x509Fields.Put("public_key_size", len(dsaKey.P.Bytes())*8)
-		}
-	} else if ecdsa, ok := hostCert.PublicKey.(*ecdsa.PublicKey); ok {
-		_, _ = x509Fields.Put("public_key_curve", ecdsa.Curve.Params().Name)
-	}
+	// if rsaKey, ok := hostCert.PublicKey.(*rsa.PublicKey); ok {
+	// 	sizeInBits := rsaKey.Size() * 8
+	// 	_, _ = x509Fields.Put("public_key_size", sizeInBits)
+	// 	_, _ = x509Fields.Put("public_key_exponent", rsaKey.E)
+	// } else if dsaKey, ok := hostCert.PublicKey.(*dsa2.PublicKey); ok {
+	// 	if dsaKey.Parameters.P != nil {
+	// 		_, _ = x509Fields.Put("public_key_size", len(dsaKey.P.Bytes())*8)
+	// 	} else {
+	// 		_, _ = x509Fields.Put("public_key_size", len(dsaKey.P.Bytes())*8)
+	// 	}
+	// } else if ecdsa, ok := hostCert.PublicKey.(*ecdsa.PublicKey); ok {
+	// 	_, _ = x509Fields.Put("public_key_curve", ecdsa.Curve.Params().Name)
+	// }
 
 	// If we have fully verified cert chains, use those for the
 	// not_before / not_after timestamps
@@ -117,11 +119,11 @@ func CertFields(hostCert *x509.Certificate, verifiedChains [][]*x509.Certificate
 
 		// Legacy non-ECS field
 		_, _ = tlsFields.Put("certificate_not_valid_before", chainNotBefore)
-		_, _ = x509Fields.Put("not_before", chainNotBefore)
+		// _, _ = x509Fields.Put("not_before", chainNotBefore)
 		if chainNotAfter != nil {
 			// Legacy non-ECS field
 			_, _ = tlsFields.Put("certificate_not_valid_after", *chainNotAfter)
-			_, _ = x509Fields.Put("not_after", *chainNotAfter)
+			// _, _ = x509Fields.Put("not_after", *chainNotAfter)
 		}
 	}
 

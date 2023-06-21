@@ -236,7 +236,9 @@ func execPing(
 	defer cancel()
 
 	req = attachRequestBody(&ctx, req, reqBody)
-
+	//by john
+	//add httpclinenttrace infomation
+	traceInfo, req := AddTrace(req)
 	// Send the HTTP request. We don't immediately return on error since
 	// we may want to add additional fields to contextualize the error.
 	start, resp, errReason := execRequest(client, req)
@@ -289,6 +291,30 @@ func execPing(
 
 	// Mark the end time as now, since we've finished downloading
 	end = time.Now()
+
+	//by john
+	//add trace fields
+	traceInfo.endTime = time.Now()
+	traceDuration := mapstr.M{
+		"dnslookup":    traceInfo.DNSLookup,
+		"tlshandshake": traceInfo.TLSHandshake,
+		"servetime":    traceInfo.ServerTime,
+		"connIdletime": traceInfo.ConnIdleTime,
+	}
+	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
+		"trace": mapstr.M{
+			"get_conn":                traceInfo.getConn,
+			"dns_start":               traceInfo.dnsStart,
+			"dns_done":                traceInfo.dnsDone,
+			"connect_done":            traceInfo.connectDone,
+			"tls_handshake_start":     traceInfo.tlsHandshakeStart,
+			"tls_handshake_done":      traceInfo.tlsHandshakeDone,
+			"got_conn":                traceInfo.gotConn,
+			"got_first_Response_byte": traceInfo.gotFirstResponseByte,
+			"end_time":                traceInfo.endTime,
+			"trace_duration":          traceDuration,
+		},
+	}})
 
 	// Enrich event with TLS information when available. This is useful when connecting to an HTTPS server through
 	// a proxy.
