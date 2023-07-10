@@ -58,7 +58,7 @@ func AddTLSMetadata(fields mapstr.M, connState cryptoTLS.ConnectionState, durati
 	fields.DeepUpdate(mapstr.M{"tls": tlsFields})
 }
 
-// change code by john
+// by John
 // delete tls fields
 func CertFields(hostCert *x509.Certificate, verifiedChains [][]*x509.Certificate) (tlsFields mapstr.M) {
 	// x509Fields := mapstr.M{}

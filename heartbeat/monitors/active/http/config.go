@@ -44,6 +44,16 @@ type Config struct {
 	Check checkConfig `config:"check"`
 
 	Transport httpcommon.HTTPTransportSettings `config:",inline"`
+
+	// by John
+	Retry retryConfig `config:"retry" yaml:"retry,omitempty" json:"retry,omitempty"`
+}
+
+// by John
+// Retry settings
+type retryConfig struct {
+	Retries  int           `config:"times" yaml:"times,omitempty" json:"times,omitempty"`
+	WaitTime time.Duration `config:"interval" yaml:"interval,omitempty" json:"interval,omitempty"`
 }
 
 type responseConfig struct {

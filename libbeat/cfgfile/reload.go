@@ -161,17 +161,17 @@ func (rl *Reloader) Check(runnerFactory RunnerFactory) error {
 // by liz
 // 提供外部调用reload
 
-// var runnerlist *RunnerList
+var list *RunnerList
 
 func MonitorList() *RunnerList {
-	return new(RunnerList)
+	return list
 }
 
 // Run runs the reloader
 func (rl *Reloader) Run(runnerFactory RunnerFactory) {
 	logp.Info("Config reloader started")
 
-	list := NewRunnerList("reload", runnerFactory, rl.pipeline)
+	list = NewRunnerList("reload", runnerFactory, rl.pipeline)
 
 	rl.wg.Add(1)
 	defer rl.wg.Done()

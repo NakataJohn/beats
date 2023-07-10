@@ -38,7 +38,6 @@ import (
 	"github.com/elastic/beats/v7/heartbeat/ecserr"
 	"github.com/elastic/beats/v7/heartbeat/monitors/active/dialchain/tlsmeta"
 
-	"github.com/elastic/elastic-agent-libs/transport/httpcommon"
 	"github.com/elastic/elastic-agent-libs/transport/tlscommon"
 
 	"github.com/elastic/beats/v7/heartbeat/eventext"
@@ -68,8 +67,8 @@ func newHTTPMonitorHostJob(
 		client := &http.Client{
 			// Trace visited URLs when redirects occur
 			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects),
-			Transport:     transport,
 			Timeout:       config.Transport.Timeout,
+			// Transport:     transport,
 		}
 
 		req, err := reqFactory()
@@ -77,7 +76,7 @@ func newHTTPMonitorHostJob(
 			return fmt.Errorf("could not make http request: %w", err)
 		}
 
-		_, err = execPing(event, client, req, body, config.Transport.Timeout, validator, config.Response)
+		_, err = execPing(event, client, req, body, &config.Retry, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
 		}
@@ -133,7 +132,7 @@ func createPingFactory(
 			d.AddLayer(dialchain.TLSLayer(tls, timeout))
 		}
 
-		dialer, err := d.Build(event)
+		// dialer, err := d.Build(event)
 		if err != nil {
 			return err
 		}
@@ -149,31 +148,31 @@ func createPingFactory(
 		// prevents following redirects in this case, we know that
 		// config.MaxRedirects must be zero to even be here
 		checkRedirect := makeCheckRedirect(0, nil)
-		transport := &SimpleTransport{
-			Dialer: dialer,
-			OnStartWrite: func() {
-				cbMutex.Lock()
-				writeStart = time.Now()
-				cbMutex.Unlock()
-			},
-			OnEndWrite: func() {
-				cbMutex.Lock()
-				writeEnd = time.Now()
-				cbMutex.Unlock()
-			},
-			OnStartRead: func() {
-				cbMutex.Lock()
-				readStart = time.Now()
-				cbMutex.Unlock()
-			},
-		}
+		// transport := &SimpleTransport{
+		// 	// Dialer: dialer,
+		// 	OnStartWrite: func() {
+		// 		cbMutex.Lock()
+		// 		writeStart = time.Now()
+		// 		cbMutex.Unlock()
+		// 	},
+		// 	OnEndWrite: func() {
+		// 		cbMutex.Lock()
+		// 		writeEnd = time.Now()
+		// 		cbMutex.Unlock()
+		// 	},
+		// 	OnStartRead: func() {
+		// 		cbMutex.Lock()
+		// 		readStart = time.Now()
+		// 		cbMutex.Unlock()
+		// 	},
+		// }
 		client := &http.Client{
 			CheckRedirect: checkRedirect,
 			Timeout:       timeout,
-			Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
+			// Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
 		}
 
-		end, err := execPing(event, client, req, body, timeout, validator, config.Response)
+		end, err := execPing(event, client, req, body, &config.Retry, timeout, validator, config.Response)
 		cbMutex.Lock()
 		defer cbMutex.Unlock()
 
@@ -223,31 +222,76 @@ func buildRequest(addr string, config *Config, enc contentEncoder) (*http.Reques
 	return request, nil
 }
 
+// TODO exec retry
 func execPing(
 	event *beat.Event,
 	client *http.Client,
 	req *http.Request,
 	reqBody []byte,
+	retry *retryConfig, //by John
 	timeout time.Duration,
 	validator multiValidator,
 	responseConfig responseConfig,
 ) (end time.Time, err error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	// // ctx, cancel := context.WithTimeout(context.Background(), timeout+time.Duration(float64(retry.Retries)*float64(retry.WaitTime)))
+	// ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// defer cancel()
 
-	req = attachRequestBody(&ctx, req, reqBody)
-	//by john
-	//add httpclinenttrace infomation
-	traceInfo, req := AddTrace(req)
-	// Send the HTTP request. We don't immediately return on error since
-	// we may want to add additional fields to contextualize the error.
-	start, resp, errReason := execRequest(client, req)
+	// req = attachRequestBody(&ctx, req, reqBody)
+
+	// // Send the HTTP request. We don't immediately return on error since
+	// // we may want to add additional fields to contextualize the error.
+	// start, resp, errReason := execRequest(client, req)
+
+	// by John
+	// retry function
+	var (
+		start      time.Time
+		resp       *http.Response
+		errReason  reason.Reason
+		retrytimes int
+		traceInfo  *traceInfos
+	)
+
+	if retry.Retries == 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+		req = attachRequestBody(&ctx, req, reqBody)
+		start, traceInfo, resp, errReason = execRequest(client, req)
+	} else if retry.Retries > 0 {
+		start = time.Now()
+		for i := 0; i <= retry.Retries; i++ {
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			req = attachRequestBody(&ctx, req, reqBody)
+			// excute the request backoff retries with increasing timeout duration up until X amount of retries.
+			_, traceInfo, resp, errReason = execRequest(client, req)
+			retrytimes = i
+			cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
+			if resp != nil && errReason == nil {
+				break
+			}
+			if i != retry.Retries {
+				time.Sleep(retry.WaitTime)
+			}
+		}
+	}
+
+	// by John
+	// add retry_times
+	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
+		"trace": mapstr.M{
+			"start_time": start,
+			"retries":    retrytimes,
+		}}})
 	// If we have no response object or an error was set there probably was an IO error, we can skip the rest of the logic
 	// since that logic is for adding metadata relating to completed HTTP transactions that have errored
 	// in other ways
 	if resp == nil || errReason != nil {
 		var ecsErr *ecserr.ECSErr
 		var urlError *url.Error
+		// by John
+		// add end time
+		eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{"trace": mapstr.M{"end_time": time.Now()}}})
 		if errors.As(errReason.Unwrap(), &ecsErr) {
 			return time.Now(), ecsErr
 		} else if errors.As(errReason.Unwrap(), &urlError) {
@@ -258,7 +302,6 @@ func execPing(
 
 			}
 		}
-
 		return time.Now(), errReason
 	}
 
@@ -292,15 +335,16 @@ func execPing(
 	// Mark the end time as now, since we've finished downloading
 	end = time.Now()
 
-	//by john
-	//add trace fields
-	traceInfo.endTime = time.Now()
-	traceDuration := mapstr.M{
-		"dnslookup":    traceInfo.DNSLookup,
-		"tlshandshake": traceInfo.TLSHandshake,
-		"servetime":    traceInfo.ServerTime,
-		"connIdletime": traceInfo.ConnIdleTime,
-	}
+	// by John
+	// add trace fields
+	// See 'heartbeat/monitors/active/http/trace.go' for definitions of all fields
+	traceInfo.endTime = end
+	// traceDuration := mapstr.M{
+	// 	"dnslookup":    traceInfo.DNSLookup,
+	// 	"tlshandshake": traceInfo.TLSHandshake,
+	// 	"servetime":    traceInfo.ServerTime,
+	// 	"connIdletime": traceInfo.ConnIdleTime,
+	// }
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
 		"trace": mapstr.M{
 			"get_conn":                traceInfo.getConn,
@@ -312,7 +356,7 @@ func execPing(
 			"got_conn":                traceInfo.gotConn,
 			"got_first_Response_byte": traceInfo.gotFirstResponseByte,
 			"end_time":                traceInfo.endTime,
-			"trace_duration":          traceDuration,
+			// "trace_duration":          traceDuration,
 		},
 	}})
 
@@ -345,9 +389,17 @@ func attachRequestBody(ctx *context.Context, req *http.Request, body []byte) *ht
 }
 
 // execute the request. Note that this does not close the resp body, which should be done by caller
-func execRequest(client *http.Client, req *http.Request) (start time.Time, resp *http.Response, errReason reason.Reason) {
+func execRequest(client *http.Client, req *http.Request) (start time.Time, traceinfo *traceInfos, resp *http.Response, errReason reason.Reason) {
+	//add httpclinenttrace infomation
+
+	traceInfo := new(traceInfos)
+	// ctx := traceInfo.createContext(req.Context())
+	ctx := traceInfo.createContextwithTransport()
+	req = req.WithContext(ctx)
 	start = time.Now()
+	// client = new(http.Client)
 	resp, err := client.Do(req)
+	// resp, err := http.DefaultTransport.RoundTrip(req)
 
 	// Since the HTTP client is very old we can't use errors.Is, but must
 	// use this ancient bit of cruft to determine if we couldn't connect
@@ -358,10 +410,10 @@ func execRequest(client *http.Client, req *http.Request) (start time.Time, resp 
 	}
 
 	if err != nil {
-		return start, nil, reason.IOFailed(err)
+		return start, traceInfo, nil, reason.IOFailed(err)
 	}
 
-	return start, resp, nil
+	return start, traceInfo, resp, nil
 }
 
 func splitHostnamePort(addr string) (string, uint16, error) {

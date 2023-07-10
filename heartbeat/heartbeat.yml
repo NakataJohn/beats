@@ -179,6 +179,16 @@ processors:
 # Sets log level. The default log level is info.
 # Available log levels are: error, warning, info, debug
 #logging.level: debug
+#logging.to_files: true
+#logging.files:
+#  path: /var/log/heartbeat
+#  name: heartbeat
+#  keepfiles: 7
+#  permissions: 0640
+#
+#logging.metrics:
+#  enable: true
+#  period: 60s
 
 # At debug level, you can selectively enable logging only for some components.
 # To enable all selectors use ["*"]. Examples of other selectors are "beat",

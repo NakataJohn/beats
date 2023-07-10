@@ -161,12 +161,14 @@ func WithAgentMeta() modifier {
 	return builtinModifier(func(info beat.Info) mapstr.M {
 		hostname := info.FQDNAwareHostname(features.FQDN())
 
+		// by John
+		// delete agent fields
 		metadata := mapstr.M{
-			"ephemeral_id": info.EphemeralID.String(),
-			"id":           info.ID.String(),
-			"name":         hostname,
-			"type":         info.Beat,
-			"version":      info.Version,
+			"id":   info.ID.String(),
+			"name": hostname,
+			// "ephemeral_id": info.EphemeralID.String(),
+			// "type":         info.Beat,
+			// "version":      info.Version,
 		}
 		if info.Name != "" {
 			metadata["name"] = info.Name

@@ -51,13 +51,16 @@ func WrapCommon(js []jobs.Job, stdMonFields stdfields.StdMonitorFields, stateLoa
 	}
 }
 
+// by John
+// delete state fields
+
 // WrapLightweight applies to http/tcp/icmp, everything but journeys involving node
 func WrapLightweight(js []jobs.Job, stdMonFields stdfields.StdMonitorFields, mst *monitorstate.Tracker) []jobs.Job {
 	return jobs.WrapAllSeparately(
 		jobs.WrapAll(
 			js,
 			addMonitorTimespan(stdMonFields),
-			addServiceName(stdMonFields),
+			// addServiceName(stdMonFields),
 			addMonitorMeta(stdMonFields, len(js) > 1),
 			addMonitorStatus(nil),
 			addMonitorErr,
@@ -67,9 +70,9 @@ func WrapLightweight(js []jobs.Job, stdMonFields stdfields.StdMonitorFields, mst
 		func() jobs.JobWrapper {
 			return makeAddSummary()
 		},
-		func() jobs.JobWrapper {
-			return addMonitorState(stdMonFields, mst)
-		},
+		// func() jobs.JobWrapper {
+		// 	return addMonitorState(stdMonFields, mst)
+		// },
 	)
 
 }
@@ -81,40 +84,40 @@ func WrapBrowser(js []jobs.Job, stdMonFields stdfields.StdMonitorFields, mst *mo
 	return jobs.WrapAll(
 		js,
 		addMonitorTimespan(stdMonFields),
-		addServiceName(stdMonFields),
+		// addServiceName(stdMonFields),
 		addMonitorMeta(stdMonFields, false),
 		addMonitorStatus(byEventType("heartbeat/summary")),
 		addMonitorErr,
 		addBrowserSummary(stdMonFields, byEventType("heartbeat/summary")),
-		addMonitorState(stdMonFields, mst),
+		// addMonitorState(stdMonFields, mst),
 		logMonitorRun(byEventType("heartbeat/summary")),
 	)
 }
 
-// addMonitorState computes the various state fields
-func addMonitorState(sf stdfields.StdMonitorFields, mst *monitorstate.Tracker) jobs.JobWrapper {
-	return func(job jobs.Job) jobs.Job {
-		return func(event *beat.Event) ([]jobs.Job, error) {
-			cont, err := job(event)
+// // addMonitorState computes the various state fields
+// func addMonitorState(sf stdfields.StdMonitorFields, mst *monitorstate.Tracker) jobs.JobWrapper {
+// 	return func(job jobs.Job) jobs.Job {
+// 		return func(event *beat.Event) ([]jobs.Job, error) {
+// 			cont, err := job(event)
 
-			hasSummary, _ := event.Fields.HasKey("summary.up")
-			if !hasSummary {
-				return cont, err
-			}
+// 			hasSummary, _ := event.Fields.HasKey("summary.up")
+// 			if !hasSummary {
+// 				return cont, err
+// 			}
 
-			status, err := event.GetValue("monitor.status")
-			if err != nil {
-				return nil, fmt.Errorf("could not wrap state for '%s', no status assigned: %w", sf.ID, err)
-			}
+// 			status, err := event.GetValue("monitor.status")
+// 			if err != nil {
+// 				return nil, fmt.Errorf("could not wrap state for '%s', no status assigned: %w", sf.ID, err)
+// 			}
 
-			ms := mst.RecordStatus(sf, monitorstate.StateStatus(status.(string)))
+// 			ms := mst.RecordStatus(sf, monitorstate.StateStatus(status.(string)))
 
-			eventext.MergeEventFields(event, mapstr.M{"state": ms})
+// 			eventext.MergeEventFields(event, mapstr.M{"state": ms})
 
-			return cont, nil
-		}
-	}
-}
+// 			return cont, nil
+// 		}
+// 	}
+// }
 
 // addMonitorMeta adds the id, name, and type fields to the monitor.
 func addMonitorMeta(sFields stdfields.StdMonitorFields, hashURLIntoID bool) jobs.JobWrapper {
@@ -188,23 +191,23 @@ func addMonitorTimespan(sf stdfields.StdMonitorFields) jobs.JobWrapper {
 	}
 }
 
-// Add service.name to monitors for APM interop
-func addServiceName(sf stdfields.StdMonitorFields) jobs.JobWrapper {
-	return func(origJob jobs.Job) jobs.Job {
-		return func(event *beat.Event) ([]jobs.Job, error) {
-			cont, err := origJob(event)
+// // Add service.name to monitors for APM interop
+// func addServiceName(sf stdfields.StdMonitorFields) jobs.JobWrapper {
+// 	return func(origJob jobs.Job) jobs.Job {
+// 		return func(event *beat.Event) ([]jobs.Job, error) {
+// 			cont, err := origJob(event)
 
-			if sf.Service.Name != "" {
-				eventext.MergeEventFields(event, mapstr.M{
-					"service": mapstr.M{
-						"name": sf.Service.Name,
-					},
-				})
-			}
-			return cont, err
-		}
-	}
-}
+// 			if sf.Service.Name != "" {
+// 				eventext.MergeEventFields(event, mapstr.M{
+// 					"service": mapstr.M{
+// 						"name": sf.Service.Name,
+// 					},
+// 				})
+// 			}
+// 			return cont, err
+// 		}
+// 	}
+// }
 
 func timespan(started time.Time, sched *schedule.Schedule, timeout time.Duration) mapstr.M {
 	maxEnd := sched.Next(started)
