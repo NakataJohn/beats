@@ -113,15 +113,15 @@ type clientTrace struct {
 // 		ctx,
 // 		&httptrace.ClientTrace{
 // 			DNSStart: func(_ httptrace.DNSStartInfo) {
-// 				t.dnsStart = time.Now().UnixMilli()
+// 				t.dnsStart = time.Now().UnixMicro()
 // 			},
 // 			DNSDone: func(_ httptrace.DNSDoneInfo) {
-// 				t.dnsDone = time.Now().UnixMilli()
+// 				t.dnsDone = time.Now().UnixMicro()
 // 				// t.DNSLookup = t.dnsDone.Sub(t.dnsStart)
 // 			},
 // 			ConnectStart: func(_, _ string) {
 // 				if t.dnsDone == 0 {
-// 					t.dnsDone = time.Now().UnixMilli()
+// 					t.dnsDone = time.Now().UnixMicro()
 // 					time.Now().IsZero()
 // 				}
 // 				if t.dnsStart == 0 {
@@ -129,25 +129,25 @@ type clientTrace struct {
 // 				}
 // 			},
 // 			ConnectDone: func(net, addr string, err error) {
-// 				t.connectDone = time.Now().UnixMilli()
+// 				t.connectDone = time.Now().UnixMicro()
 // 			},
 // 			GetConn: func(_ string) {
-// 				t.getConn = time.Now().UnixMilli()
+// 				t.getConn = time.Now().UnixMicro()
 // 			},
 // 			GotConn: func(ci httptrace.GotConnInfo) {
-// 				t.gotConn = time.Now().UnixMilli()
+// 				t.gotConn = time.Now().UnixMicro()
 // 				t.gotConnInfo = ci
 // 				// t.ConnIdleTime = t.gotConnInfo.IdleTime
 // 			},
 // 			GotFirstResponseByte: func() {
-// 				t.gotFirstResponseByte = time.Now().UnixMilli()
+// 				t.gotFirstResponseByte = time.Now().UnixMicro()
 // 				// t.ServerTime = t.gotFirstResponseByte.Sub(t.gotConn)
 // 			},
 // 			TLSHandshakeStart: func() {
-// 				t.tlsHandshakeStart = time.Now().UnixMilli()
+// 				t.tlsHandshakeStart = time.Now().UnixMicro()
 // 			},
 // 			TLSHandshakeDone: func(_ tls.ConnectionState, _ error) {
-// 				t.tlsHandshakeDone = time.Now().UnixMilli()
+// 				t.tlsHandshakeDone = time.Now().UnixMicro()
 // 				// t.TLSHandshake = t.tlsHandshakeDone.Sub(t.tlsHandshakeStart)
 // 			},
 // 		},
@@ -175,15 +175,15 @@ func (t *traceInfos) createContextwithTransport() context.Context {
 		context.Background(),
 		&httptrace.ClientTrace{
 			DNSStart: func(_ httptrace.DNSStartInfo) {
-				t.dnsStart = time.Now().UnixMilli()
+				t.dnsStart = time.Now().UnixMicro()
 			},
 			DNSDone: func(_ httptrace.DNSDoneInfo) {
-				t.dnsDone = time.Now().UnixMilli()
+				t.dnsDone = time.Now().UnixMicro()
 				// t.DNSLookup = t.dnsDone.Sub(t.dnsStart)
 			},
 			ConnectStart: func(_, _ string) {
 				if t.dnsDone == 0 {
-					t.dnsDone = time.Now().UnixMilli()
+					t.dnsDone = time.Now().UnixMicro()
 					time.Now().IsZero()
 				}
 				if t.dnsStart == 0 {
@@ -191,25 +191,25 @@ func (t *traceInfos) createContextwithTransport() context.Context {
 				}
 			},
 			ConnectDone: func(net, addr string, err error) {
-				t.connectDone = time.Now().UnixMilli()
+				t.connectDone = time.Now().UnixMicro()
 			},
 			GetConn: func(_ string) {
-				t.getConn = time.Now().UnixMilli()
+				t.getConn = time.Now().UnixMicro()
 			},
 			GotConn: func(ci httptrace.GotConnInfo) {
-				t.gotConn = time.Now().UnixMilli()
+				t.gotConn = time.Now().UnixMicro()
 				t.gotConnInfo = ci
 				// t.ConnIdleTime = t.gotConnInfo.IdleTime
 			},
 			GotFirstResponseByte: func() {
-				t.gotFirstResponseByte = time.Now().UnixMilli()
+				t.gotFirstResponseByte = time.Now().UnixMicro()
 				// t.ServerTime = t.gotFirstResponseByte.Sub(t.gotConn)
 			},
 			TLSHandshakeStart: func() {
-				t.tlsHandshakeStart = time.Now().UnixMilli()
+				t.tlsHandshakeStart = time.Now().UnixMicro()
 			},
 			TLSHandshakeDone: func(_ tls.ConnectionState, _ error) {
-				t.tlsHandshakeDone = time.Now().UnixMilli()
+				t.tlsHandshakeDone = time.Now().UnixMicro()
 				// t.TLSHandshake = t.tlsHandshakeDone.Sub(t.tlsHandshakeStart)
 			},
 		},
