@@ -24,7 +24,10 @@ import (
 	_ "github.com/elastic/beats/v7/libbeat/outputs/console"
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/elasticsearch"
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/fileout"
+	_ "github.com/elastic/beats/v7/libbeat/outputs/gonetty"
 	_ "github.com/elastic/beats/v7/libbeat/outputs/http"
+
+	// _ "github.com/elastic/beats/v7/libbeat/outputs/tcp"
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/kafka"
 	_ "github.com/elastic/beats/v7/libbeat/outputs/logstash"
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/redis"

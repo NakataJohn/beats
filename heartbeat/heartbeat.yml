@@ -115,6 +115,19 @@ setup.kibana:
 #username: "elastic"
 #password: "changeme"
 
+# ------------------------------- Console Output -------------------------------
+output.console:
+  # Boolean flag to enable or disable the output module.
+  enabled: false
+
+  # Configure JSON encoding
+  codec.json:
+    # Pretty-print JSON event
+    pretty: false
+
+    # Configure escaping HTML symbols in strings.
+    #escape_html: false
+
 # ------------------------------ Logstash Output -------------------------------
 #output.logstash:
 # The Logstash hosts

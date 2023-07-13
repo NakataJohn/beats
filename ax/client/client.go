@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -64,6 +65,7 @@ func (c AXClient) Connect() {
 		format.TextCodec(),
 		netty.WriteIdleHandler(c.HeartIdleTime),
 		handler.HeartBeatHandler{},
+		handler.ConnHandler{Gotctx: func(ctx netty.HandlerContext) { contxt = ctx }},
 		handler.LogicHandler{SID: c.Name, Do: c.BusinessFunc},
 		wd,
 	}
@@ -91,7 +93,7 @@ func Start(cfg *bc.C) {
 		log:  logp.NewLogger("AXClient-dispatcher"),
 	}
 
-	var c = &AXClient{
+	var Axclient = &AXClient{
 		Rtime:         m.STCP.RetryTime,
 		Host:          m.STCP.Host,
 		Port:          m.STCP.Port,
@@ -101,9 +103,21 @@ func Start(cfg *bc.C) {
 		log:           logp.NewLogger("AXClient"),
 	}
 
-	c.log.Info("Starting client connect......")
+	Axclient.log.Info("Starting client connect......")
 
 	go func(c *AXClient) {
 		c.Connect()
-	}(c)
+	}(Axclient)
+}
+
+var contxt netty.HandlerContext
+
+func SendMsg(msg string) error {
+	if contxt != nil {
+		if contxt.Channel().IsActive() {
+			contxt.Write(msg)
+			return nil
+		}
+	}
+	return errors.New("context faild")
 }
