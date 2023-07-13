@@ -25,17 +25,10 @@ var (
 
 	ErrAnything = errors.New("errors want to close conn")
 
-	// // setup client pipeline initializer.
-	// clientInitializer = func(channel netty.Channel) {
-	// 	channel.Pipeline().
-	// 		AddLast(frame.DelimiterCodec(102400, "$$", true)).
-	// 		AddLast(format.TextCodec()).
-	// 		AddLast(nettylogHandler{})
-	// }
+
 )
 
 type tcpOut struct {
-	// connection net.Conn
 	// connection   *client.SendMsg
 	batchPublish bool
 	address      *net.TCPAddr
