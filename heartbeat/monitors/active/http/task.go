@@ -280,6 +280,7 @@ func execPing(
 	// add retry_times
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
 		"trace": mapstr.M{
+			"addrs":      traceInfo.addrs,
 			"start_time": start,
 			"retries":    retrytimes,
 		}}})

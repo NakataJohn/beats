@@ -3,6 +3,7 @@ package http
 import (
 	"context"
 	"crypto/tls"
+	"net"
 	"net/http/httptrace"
 	"time"
 )
@@ -99,6 +100,7 @@ type clientTrace struct {
 	tlsHandshakeDone     int64
 	gotConn              int64
 	gotFirstResponseByte int64
+	addrs                []net.IPAddr
 	endTime              time.Time
 	gotConnInfo          httptrace.GotConnInfo
 }
@@ -177,8 +179,9 @@ func (t *traceInfos) createContextwithTransport() context.Context {
 			DNSStart: func(_ httptrace.DNSStartInfo) {
 				t.dnsStart = time.Now().UnixMicro()
 			},
-			DNSDone: func(_ httptrace.DNSDoneInfo) {
+			DNSDone: func(dnsinfo httptrace.DNSDoneInfo) {
 				t.dnsDone = time.Now().UnixMicro()
+				t.addrs = dnsinfo.Addrs
 				// t.DNSLookup = t.dnsDone.Sub(t.dnsStart)
 			},
 			ConnectStart: func(_, _ string) {
