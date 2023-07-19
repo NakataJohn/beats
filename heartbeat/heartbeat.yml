@@ -144,14 +144,14 @@ output.console:
 #ssl.key: "/etc/pki/client/cert.key"
 
 #------------------------------ HTTP output ------------------------------------
-output.http:
-  hosts: ["127.0.0.1:8123/foo"]
-  tls:
-    enabled: true
-    certificate_authorities: ["./ssl.crt"]
-    supported_protocols: ["TLSv1.0", "TLSv1.1", "TLSv1.2"]
+# output.http:
+#   hosts: ["127.0.0.1:8123/foo"]
+#   tls:
+#     enabled: true
+#     certificate_authorities: ["./ssl.crt"]
+#     supported_protocols: ["TLSv1.0", "TLSv1.1", "TLSv1.2"]
 
-  #    hosts: ["${STSURL}connbeat?api_key=${APIKEY}"]
+#    hosts: ["${STSURL}connbeat?api_key=${APIKEY}"]
 #
 # Optional further settings:
 #    protocol: "https"
@@ -176,6 +176,16 @@ output.http:
 # BASIC authentication:
 #    username: "alice"
 #    password: "secret"
+
+#------------------------------ gonetty output ------------------------------------
+output.gonetty:
+  enabled: true
+# host: 10.13.6.68
+# port: 8765
+# codec.json:
+#   pretty: false
+#   escape_html: false
+#  line_delimiter: \n
 
 # ================================= Processors =================================
 
