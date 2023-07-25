@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/elastic/beats/v7/ax/client/common"
 	"github.com/elastic/beats/v7/libbeat/cfgfile"
@@ -80,6 +81,24 @@ func (d *Dispatcher) Do(msg string) {
 			common.Delconfigfile(d.getFileName(id))
 
 		}
+	// by john add asyncjob
+	// TODO 异步监测任务
+	case "async":
+		// 检查数据
+		// 加入监控
+		asyncjobConfigs, err := common.LoadConfigsFromDict(_action.Data)
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			go func() {
+				for _, asyncjobConfig := range asyncjobConfigs {
+					cfgfile.MonitorList().StartRunner(asyncjobConfig)
+					time.Sleep(40 * time.Second)
+					cfgfile.MonitorList().StopRunner(asyncjobConfig)
+				}
+			}()
+		}
+
 	case "change":
 		// 检查数据
 		// 1、获取配置文件
