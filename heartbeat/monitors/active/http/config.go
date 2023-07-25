@@ -47,6 +47,7 @@ type Config struct {
 
 	// by John
 	Retry retryConfig `config:"retry" yaml:"retry,omitempty" json:"retry,omitempty"`
+	Async asyncConfig `config:"async" yaml:"async,omitempty" json:"async,omitempty"`
 }
 
 // by John
@@ -54,6 +55,12 @@ type Config struct {
 type retryConfig struct {
 	Retries  int           `config:"times" yaml:"times,omitempty" json:"times,omitempty"`
 	WaitTime time.Duration `config:"interval" yaml:"interval,omitempty" json:"interval,omitempty"`
+}
+
+// Async settings
+type asyncConfig struct {
+	Enabled bool   `config:"enabled" yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Bid     string `config:"bid" yaml:"bid,omitempty" json:"bid,omitempty"`
 }
 
 type responseConfig struct {

@@ -76,7 +76,7 @@ func newHTTPMonitorHostJob(
 			return fmt.Errorf("could not make http request: %w", err)
 		}
 
-		_, err = execPing(event, client, req, body, &config.Retry, config.Transport.Timeout, validator, config.Response)
+		_, err = execPing(event, client, req, body, &config.Retry, &config.Async, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
 		}
@@ -172,7 +172,7 @@ func createPingFactory(
 			// Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
 		}
 
-		end, err := execPing(event, client, req, body, &config.Retry, timeout, validator, config.Response)
+		end, err := execPing(event, client, req, body, &config.Retry, &config.Async, timeout, validator, config.Response)
 		cbMutex.Lock()
 		defer cbMutex.Unlock()
 
@@ -229,6 +229,7 @@ func execPing(
 	req *http.Request,
 	reqBody []byte,
 	retry *retryConfig, //by John
+	async *asyncConfig,
 	timeout time.Duration,
 	validator multiValidator,
 	responseConfig responseConfig,
@@ -284,6 +285,8 @@ func execPing(
 			"start_time": start,
 			"retries":    retrytimes,
 		}}})
+
+	eventext.MergeEventFields(event, mapstr.M{"async": async})
 	// If we have no response object or an error was set there probably was an IO error, we can skip the rest of the logic
 	// since that logic is for adding metadata relating to completed HTTP transactions that have errored
 	// in other ways
