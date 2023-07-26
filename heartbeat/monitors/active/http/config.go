@@ -59,7 +59,7 @@ type retryConfig struct {
 
 // Async settings
 type asyncConfig struct {
-	Enabled bool   `config:"enabled" yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	Enabled bool   `config:"enabled" yaml:"enabled" json:"enabled"`
 	Bid     string `config:"bid" yaml:"bid,omitempty" json:"bid,omitempty"`
 }
 
@@ -130,6 +130,9 @@ func defaultConfig() Config {
 			},
 		},
 		Transport: httpcommon.DefaultHTTPTransportSettings(),
+		Async: asyncConfig{
+			Enabled: false,
+		},
 	}
 	cfg.Transport.Timeout = 16 * time.Second
 

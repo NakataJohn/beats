@@ -278,6 +278,8 @@ func execPing(
 	}
 
 	// by John
+	// add async
+	eventext.MergeEventFields(event, mapstr.M{"async": async})
 	// add retry_times
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
 		"trace": mapstr.M{
@@ -286,7 +288,6 @@ func execPing(
 			"retries":    retrytimes,
 		}}})
 
-	eventext.MergeEventFields(event, mapstr.M{"async": async})
 	// If we have no response object or an error was set there probably was an IO error, we can skip the rest of the logic
 	// since that logic is for adding metadata relating to completed HTTP transactions that have errored
 	// in other ways
