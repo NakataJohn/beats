@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"os"
 	"strconv"
@@ -51,6 +52,8 @@ import (
 
 type requestFactory func() (*http.Request, error)
 
+var traceInfo = new(traceInfos)
+
 func newHTTPMonitorHostJob(
 	addr string,
 	config *Config,
@@ -68,12 +71,27 @@ func newHTTPMonitorHostJob(
 			// Trace visited URLs when redirects occur
 			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects),
 			Timeout:       config.Transport.Timeout,
-			// Transport:     transport,
+			Transport:     transport,
 		}
 
 		req, err := reqFactory()
 		if err != nil {
 			return fmt.Errorf("could not make http request: %w", err)
+		}
+		clitrace := traceInfo.newTrace()
+		// 手动触发httptrace的DNSStart钩子函数
+		clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
+		addrs, _ := net.LookupHost(req.URL.Host)
+		// 转换成 []net.IPAddr 类型
+		ipAddrs := make([]net.IPAddr, len(addrs))
+		for i, addr := range addrs {
+			ipAddrs[i] = net.IPAddr{IP: net.ParseIP(addr)}
+		}
+		// 手动触发httptrace的DNSDone钩子函数
+		clitrace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs})
+		// 手动触发httptrace的ConnectStart和ConnectDone钩子函数
+		if addrs != nil {
+			clitrace.ConnectDone("tcp", addrs[0], nil)
 		}
 
 		_, err = execPing(event, client, req, body, &config.Retry, &config.Async, config.Transport.Timeout, validator, config.Response)
@@ -149,7 +167,7 @@ func createPingFactory(
 		// config.MaxRedirects must be zero to even be here
 		checkRedirect := makeCheckRedirect(0, nil)
 		// transport := &SimpleTransport{
-		// 	// Dialer: dialer,
+		//	Dialer: dialer,
 		// 	OnStartWrite: func() {
 		// 		cbMutex.Lock()
 		// 		writeStart = time.Now()
@@ -355,12 +373,12 @@ func execPing(
 			"get_conn":                traceInfo.getConn,
 			"dns_start":               traceInfo.dnsStart,
 			"dns_done":                traceInfo.dnsDone,
-			"connect_done":            traceInfo.connectDone,
 			"tls_handshake_start":     traceInfo.tlsHandshakeStart,
 			"tls_handshake_done":      traceInfo.tlsHandshakeDone,
 			"got_conn":                traceInfo.gotConn,
 			"got_first_Response_byte": traceInfo.gotFirstResponseByte,
 			"end_time":                traceInfo.endTime,
+			// "connect_done":            traceInfo.connectDone,
 			// "trace_duration":          traceDuration,
 		},
 	}})
@@ -396,8 +414,6 @@ func attachRequestBody(ctx *context.Context, req *http.Request, body []byte) *ht
 // execute the request. Note that this does not close the resp body, which should be done by caller
 func execRequest(client *http.Client, req *http.Request) (start time.Time, traceinfo *traceInfos, resp *http.Response, errReason reason.Reason) {
 	//add httpclinenttrace infomation
-
-	traceInfo := new(traceInfos)
 	// ctx := traceInfo.createContext(req.Context())
 	ctx := traceInfo.createContextwithTransport()
 	req = req.WithContext(ctx)
