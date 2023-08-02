@@ -52,8 +52,6 @@ import (
 
 type requestFactory func() (*http.Request, error)
 
-var traceInfo = new(traceInfos)
-
 func newHTTPMonitorHostJob(
 	addr string,
 	config *Config,
@@ -63,8 +61,10 @@ func newHTTPMonitorHostJob(
 	validator multiValidator,
 ) (jobs.Job, error) {
 
-	var reqFactory requestFactory = func() (*http.Request, error) { return buildRequest(addr, config, enc) }
-
+	var (
+		reqFactory requestFactory = func() (*http.Request, error) { return buildRequest(addr, config, enc) }
+		traceInfo                 = new(traceInfos)
+	)
 	return jobs.MakeSimpleJob(func(event *beat.Event) error {
 		var redirects []string
 		client := &http.Client{
@@ -94,7 +94,7 @@ func newHTTPMonitorHostJob(
 			clitrace.ConnectDone("tcp", addrs[0], nil)
 		}
 
-		_, err = execPing(event, client, req, body, &config.Retry, &config.Async, config.Transport.Timeout, validator, config.Response)
+		_, err = execPing(event, client, req, body, traceInfo, &config.Retry, &config.Async, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
 		}
@@ -157,6 +157,7 @@ func createPingFactory(
 
 		var (
 			writeStart, readStart, writeEnd time.Time
+			traceInfo                       = new(traceInfos)
 		)
 		// Ensure memory consistency for these callbacks.
 		// It seems they can be invoked still sometime after the request is done
@@ -190,7 +191,7 @@ func createPingFactory(
 			// Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
 		}
 
-		end, err := execPing(event, client, req, body, &config.Retry, &config.Async, timeout, validator, config.Response)
+		end, err := execPing(event, client, req, body, traceInfo, &config.Retry, &config.Async, timeout, validator, config.Response)
 		cbMutex.Lock()
 		defer cbMutex.Unlock()
 
@@ -246,6 +247,7 @@ func execPing(
 	client *http.Client,
 	req *http.Request,
 	reqBody []byte,
+	traceInfo *traceInfos,
 	retry *retryConfig, //by John
 	async *asyncConfig,
 	timeout time.Duration,
@@ -269,21 +271,21 @@ func execPing(
 		resp       *http.Response
 		errReason  reason.Reason
 		retrytimes int
-		traceInfo  *traceInfos
+		// traceInfo  *traceInfos
 	)
 
 	if retry.Retries == 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		req = attachRequestBody(&ctx, req, reqBody)
-		start, traceInfo, resp, errReason = execRequest(client, req)
+		start, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
 	} else if retry.Retries > 0 {
 		start = time.Now()
 		for i := 0; i <= retry.Retries; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			req = attachRequestBody(&ctx, req, reqBody)
 			// excute the request backoff retries with increasing timeout duration up until X amount of retries.
-			_, traceInfo, resp, errReason = execRequest(client, req)
+			_, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
 			retrytimes = i
 			cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
 			if resp != nil && errReason == nil {
@@ -412,7 +414,7 @@ func attachRequestBody(ctx *context.Context, req *http.Request, body []byte) *ht
 }
 
 // execute the request. Note that this does not close the resp body, which should be done by caller
-func execRequest(client *http.Client, req *http.Request) (start time.Time, traceinfo *traceInfos, resp *http.Response, errReason reason.Reason) {
+func execRequest(client *http.Client, traceInfo *traceInfos, req *http.Request) (start time.Time, traceinfo *traceInfos, resp *http.Response, errReason reason.Reason) {
 	//add httpclinenttrace infomation
 	// ctx := traceInfo.createContext(req.Context())
 	ctx := traceInfo.createContextwithTransport()
