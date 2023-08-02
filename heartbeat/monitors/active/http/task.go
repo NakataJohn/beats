@@ -80,8 +80,12 @@ func newHTTPMonitorHostJob(
 		}
 		clitrace := traceInfo.newTrace()
 		// 手动触发httptrace的DNSStart钩子函数
+		host, _, _ := net.SplitHostPort(req.Host)
 		clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
-		addrs, _ := net.LookupHost(req.URL.Host)
+		addrs, lerr := net.LookupHost(host)
+		if lerr != nil {
+			return ecserr.NewDNSLookupFailedErr(req.Host, lerr)
+		}
 		// 转换成 []net.IPAddr 类型
 		ipAddrs := make([]net.IPAddr, len(addrs))
 		for i, addr := range addrs {
