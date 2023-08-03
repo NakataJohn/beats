@@ -23,7 +23,7 @@ import (
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/codec/json"
 	_ "github.com/elastic/beats/v7/libbeat/outputs/console"
 	// _ "github.com/elastic/beats/v7/libbeat/outputs/elasticsearch"
-	// _ "github.com/elastic/beats/v7/libbeat/outputs/fileout"
+	_ "github.com/elastic/beats/v7/libbeat/outputs/fileout"
 	_ "github.com/elastic/beats/v7/libbeat/outputs/gonetty"
 	_ "github.com/elastic/beats/v7/libbeat/outputs/http"
 
