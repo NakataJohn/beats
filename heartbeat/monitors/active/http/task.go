@@ -81,28 +81,6 @@ func newHTTPMonitorHostJob(
 		if err != nil {
 			return fmt.Errorf("could not make http request: %w", err)
 		}
-		// clitrace := traceInfo.newTrace()
-		// // 手动触发httptrace的DNSStart钩子函数
-		// host := req.Host
-		// if strings.Contains(host, ":") {
-		// 	host, _, _ = net.SplitHostPort(req.Host)
-		// }
-		// clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
-		// addrs, lerr := net.LookupHost(host)
-		// if lerr != nil {
-		// 	return ecserr.NewDNSLookupFailedErr(req.Host, lerr)
-		// }
-		// // 转换成 []net.IPAddr 类型
-		// ipAddrs := make([]net.IPAddr, len(addrs))
-		// for i, addr := range addrs {
-		// 	ipAddrs[i] = net.IPAddr{IP: net.ParseIP(addr)}
-		// }
-		// // 手动触发httptrace的DNSDone钩子函数
-		// clitrace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs})
-		// // 手动触发httptrace的ConnectStart和ConnectDone钩子函数
-		// if addrs != nil {
-		// 	clitrace.ConnectDone("tcp", addrs[0], nil)
-		// }
 
 		_, err = execPing(event, client, req, body, traceInfo, &config.Retry, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
