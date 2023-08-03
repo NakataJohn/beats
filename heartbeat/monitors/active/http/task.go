@@ -67,6 +67,9 @@ func newHTTPMonitorHostJob(
 	)
 	return jobs.MakeSimpleJob(func(event *beat.Event) error {
 		var redirects []string
+		// by John
+		// add async
+		eventext.MergeEventFields(event, mapstr.M{"async": &config.Async})
 		client := &http.Client{
 			// Trace visited URLs when redirects occur
 			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects),
@@ -78,30 +81,30 @@ func newHTTPMonitorHostJob(
 		if err != nil {
 			return fmt.Errorf("could not make http request: %w", err)
 		}
-		clitrace := traceInfo.newTrace()
-		// 手动触发httptrace的DNSStart钩子函数
-		host := req.Host
-		if strings.Contains(host, ":") {
-			host, _, _ = net.SplitHostPort(req.Host)
-		}
-		clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
-		addrs, lerr := net.LookupHost(host)
-		if lerr != nil {
-			return ecserr.NewDNSLookupFailedErr(req.Host, lerr)
-		}
-		// 转换成 []net.IPAddr 类型
-		ipAddrs := make([]net.IPAddr, len(addrs))
-		for i, addr := range addrs {
-			ipAddrs[i] = net.IPAddr{IP: net.ParseIP(addr)}
-		}
-		// 手动触发httptrace的DNSDone钩子函数
-		clitrace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs})
-		// 手动触发httptrace的ConnectStart和ConnectDone钩子函数
-		if addrs != nil {
-			clitrace.ConnectDone("tcp", addrs[0], nil)
-		}
+		// clitrace := traceInfo.newTrace()
+		// // 手动触发httptrace的DNSStart钩子函数
+		// host := req.Host
+		// if strings.Contains(host, ":") {
+		// 	host, _, _ = net.SplitHostPort(req.Host)
+		// }
+		// clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
+		// addrs, lerr := net.LookupHost(host)
+		// if lerr != nil {
+		// 	return ecserr.NewDNSLookupFailedErr(req.Host, lerr)
+		// }
+		// // 转换成 []net.IPAddr 类型
+		// ipAddrs := make([]net.IPAddr, len(addrs))
+		// for i, addr := range addrs {
+		// 	ipAddrs[i] = net.IPAddr{IP: net.ParseIP(addr)}
+		// }
+		// // 手动触发httptrace的DNSDone钩子函数
+		// clitrace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs})
+		// // 手动触发httptrace的ConnectStart和ConnectDone钩子函数
+		// if addrs != nil {
+		// 	clitrace.ConnectDone("tcp", addrs[0], nil)
+		// }
 
-		_, err = execPing(event, client, req, body, traceInfo, &config.Retry, &config.Async, config.Transport.Timeout, validator, config.Response)
+		_, err = execPing(event, client, req, body, traceInfo, &config.Retry, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
 		}
@@ -198,7 +201,7 @@ func createPingFactory(
 			// Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
 		}
 
-		end, err := execPing(event, client, req, body, traceInfo, &config.Retry, &config.Async, timeout, validator, config.Response)
+		end, err := execPing(event, client, req, body, traceInfo, &config.Retry, timeout, validator, config.Response)
 		cbMutex.Lock()
 		defer cbMutex.Unlock()
 
@@ -256,7 +259,6 @@ func execPing(
 	reqBody []byte,
 	traceInfo *traceInfos,
 	retry *retryConfig, //by John
-	async *asyncConfig,
 	timeout time.Duration,
 	validator multiValidator,
 	responseConfig responseConfig,
@@ -274,25 +276,33 @@ func execPing(
 	// by John
 	// retry function
 	var (
-		start      time.Time
-		resp       *http.Response
-		errReason  reason.Reason
-		retrytimes int
+		start, rstart time.Time
+		resp          *http.Response
+		errReason     reason.Reason
+		retrytimes    int
 		// traceInfo  *traceInfos
 	)
+	start = time.Now()
 
 	if retry.Retries == 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
+		dnserr := dnstrace(req, traceInfo)
 		req = attachRequestBody(&ctx, req, reqBody)
-		start, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+		rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+		if dnserr != nil {
+			errReason = reason.IOFailed(dnserr)
+		}
 	} else if retry.Retries > 0 {
-		start = time.Now()
 		for i := 0; i <= retry.Retries; i++ {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			dnserr := dnstrace(req, traceInfo)
 			req = attachRequestBody(&ctx, req, reqBody)
 			// excute the request backoff retries with increasing timeout duration up until X amount of retries.
-			_, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+			rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+			if dnserr != nil {
+				errReason = reason.IOFailed(dnserr)
+			}
 			retrytimes = i
 			cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
 			if resp != nil && errReason == nil {
@@ -305,8 +315,6 @@ func execPing(
 	}
 
 	// by John
-	// add async
-	eventext.MergeEventFields(event, mapstr.M{"async": async})
 	// add retry_times
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
 		"trace": mapstr.M{
@@ -403,7 +411,7 @@ func execPing(
 	// Add total HTTP RTT
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
 		"rtt": mapstr.M{
-			"total": look.RTT(end.Sub(start)),
+			"total": look.RTT(end.Sub(rstart)),
 		},
 	}})
 
@@ -499,4 +507,32 @@ func makeCheckRedirect(max int, redirects *[]string) func(*http.Request, []*http
 		}
 		return nil
 	}
+}
+
+func dnstrace(req *http.Request, traceInfo *traceInfos) error {
+	// by john
+	// add dnstrace info;
+	clitrace := traceInfo.newTrace()
+	// 手动触发httptrace的DNSStart钩子函数
+	host := req.Host
+	if strings.Contains(host, ":") {
+		host, _, _ = net.SplitHostPort(req.Host)
+	}
+	clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
+	addrs, lerr := net.LookupHost(host)
+	if lerr != nil {
+		return ecserr.NewDNSLookupFailedErr(req.Host, lerr)
+	}
+	// 转换成 []net.IPAddr 类型
+	ipAddrs := make([]net.IPAddr, len(addrs))
+	for i, addr := range addrs {
+		ipAddrs[i] = net.IPAddr{IP: net.ParseIP(addr)}
+	}
+	// 手动触发httptrace的DNSDone钩子函数
+	clitrace.DNSDone(httptrace.DNSDoneInfo{Addrs: ipAddrs})
+	// 手动触发httptrace的ConnectStart和ConnectDone钩子函数
+	if addrs != nil {
+		clitrace.ConnectDone("tcp", addrs[0], nil)
+	}
+	return nil
 }
