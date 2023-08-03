@@ -80,7 +80,10 @@ func newHTTPMonitorHostJob(
 		}
 		clitrace := traceInfo.newTrace()
 		// 手动触发httptrace的DNSStart钩子函数
-		host, _, _ := net.SplitHostPort(req.Host)
+		host := req.Host
+		if strings.Contains(host, ":") {
+			host, _, _ = net.SplitHostPort(req.Host)
+		}
 		clitrace.DNSStart(httptrace.DNSStartInfo{Host: req.URL.Host})
 		addrs, lerr := net.LookupHost(host)
 		if lerr != nil {
@@ -437,6 +440,13 @@ func execRequest(client *http.Client, traceInfo *traceInfos, req *http.Request) 
 	}
 
 	if err != nil {
+		// by john
+		// add ECSError Information.
+		if strings.Contains(err.Error(), "connection refused") {
+			err = ecserr.NewConnectFailedErr(err)
+		} else if strings.Contains(err.Error(), "no route to host") {
+			err = ecserr.NewRouteFailedErr(err)
+		}
 		return start, traceInfo, nil, reason.IOFailed(err)
 	}
 

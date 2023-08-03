@@ -111,6 +111,24 @@ func NewDNSLookupFailedErr(host string, err error) *ECSErr {
 	)
 }
 
+// by john
+// add ECSError Information.
+func NewConnectFailedErr(err error) *ECSErr {
+	return NewECSErr(
+		TYPE_IO,
+		"CONNECTION_REFUSED",
+		fmt.Sprintf(`Connect failure %s`, err.Error()),
+	)
+}
+
+func NewRouteFailedErr(err error) *ECSErr {
+	return NewECSErr(
+		TYPE_IO,
+		"NO_ROUTE_TO_HOST",
+		fmt.Sprintf(`Route failure %s`, err.Error()),
+	)
+}
+
 const CODE_NET_COULD_NOT_CONNECT = "NET_COULD_NOT_CONNECT"
 
 func NewCouldNotConnectErr(host, port string, err error) *ECSErr {
