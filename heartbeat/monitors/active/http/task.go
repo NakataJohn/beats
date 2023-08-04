@@ -52,6 +52,14 @@ import (
 
 type requestFactory func() (*http.Request, error)
 
+type respResult struct {
+	start      time.Time
+	retrytimes int
+	traceInfo  *traceInfos
+	resp       *http.Response
+	errReason  reason.Reason
+}
+
 func newHTTPMonitorHostJob(
 	addr string,
 	config *Config,
@@ -258,40 +266,58 @@ func execPing(
 		resp          *http.Response
 		errReason     reason.Reason
 		retrytimes    int
+
 		// traceInfo  *traceInfos
 	)
 	start = time.Now()
 
-	if retry.Retries == 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		dnserr := dnstrace(req, traceInfo)
-		req = attachRequestBody(&ctx, req, reqBody)
-		rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
-		if dnserr != nil {
-			errReason = reason.IOFailed(dnserr)
-		}
-	} else if retry.Retries > 0 {
-		for i := 0; i <= retry.Retries; i++ {
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
-			dnserr := dnstrace(req, traceInfo)
-			req = attachRequestBody(&ctx, req, reqBody)
-			// excute the request backoff retries with increasing timeout duration up until X amount of retries.
-			rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
-			if dnserr != nil {
-				errReason = reason.IOFailed(dnserr)
-			}
-			retrytimes = i
-			cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
-			if resp != nil && errReason == nil {
-				break
-			}
-			if i != retry.Retries {
-				time.Sleep(retry.WaitTime)
-			}
+	// if retry.Retries == 0 {
+	// 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// 	defer cancel()
+	// 	dnserr := dnstrace(req, traceInfo)
+	// 	req = attachRequestBody(&ctx, req, reqBody)
+	// 	rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+	// 	if dnserr != nil {
+	// 		errReason = reason.IOFailed(dnserr)
+	// 	}
+	// } else if retry.Retries > 0 {
+	// 	for i := 0; i <= retry.Retries; i++ {
+	// 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// 		dnserr := dnstrace(req, traceInfo)
+	// 		req = attachRequestBody(&ctx, req, reqBody)
+	// 		// excute the request backoff retries with increasing timeout duration up until X amount of retries.
+	// 		rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+	// 		if dnserr != nil {
+	// 			errReason = reason.IOFailed(dnserr)
+	// 		}
+	// 		retrytimes = i
+	// 		cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
+	// 		if resp != nil && errReason == nil {
+	// 			break
+	// 		}
+	// 		if i != retry.Retries {
+	// 			time.Sleep(retry.WaitTime)
+	// 		}
+	// 	}
+	// }
+
+	// 创建resultChan用于接收结果
+	resultChan := make(chan *respResult)
+
+	// 启动sendHTTPRequest的goroutine执行HTTP请求
+	go sendHTTPRequest(resultChan, timeout, retry, req, traceInfo, reqBody, client)
+
+	// 使用select语句从resultChan中读取数据
+	select {
+	case result := <-resultChan:
+		if result != nil {
+			rstart = result.start
+			traceInfo = result.traceInfo
+			retrytimes = result.retrytimes
+			resp = result.resp
+			errReason = result.errReason
 		}
 	}
-
 	// by John
 	// add retry_times
 	eventext.MergeEventFields(event, mapstr.M{"http": mapstr.M{
@@ -513,4 +539,48 @@ func dnstrace(req *http.Request, traceInfo *traceInfos) error {
 		clitrace.ConnectDone("tcp", addrs[0], nil)
 	}
 	return nil
+}
+
+// 发送HTTP请求
+func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, retry *retryConfig, req *http.Request, traceInfo *traceInfos, reqBody []byte, client *http.Client) {
+	var (
+		result     *respResult
+		errReason  reason.Reason
+		retrytimes int
+		resp       *http.Response
+		rstart     time.Time
+	)
+	// 使用Context进行HTTP请求
+	for retries := 0; retries <= retry.Retries; retries++ {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		dnserr := dnstrace(req, traceInfo)
+		req = attachRequestBody(&ctx, req, reqBody)
+		// excute the request backoff retries with increasing timeout duration up until X amount of retries.
+		rstart, traceInfo, resp, errReason = execRequest(client, traceInfo, req)
+		if dnserr != nil {
+			errReason = reason.IOFailed(dnserr)
+		}
+		retrytimes = retries
+
+		cancel() //By John: Dont use defer in `for` loop，context deadline exceeded will export.
+		result = &respResult{
+			start:      rstart,
+			retrytimes: retrytimes,
+			traceInfo:  traceInfo,
+			resp:       resp,
+			errReason:  errReason,
+		}
+
+		if resp != nil && errReason == nil {
+			resultChan <- result
+			return
+		}
+		if retries != retry.Retries {
+			time.Sleep(retry.WaitTime)
+		}
+	}
+
+	// 最大重试次数达到后，发送响应结果到Channel，并报告错误
+
+	resultChan <- result
 }
