@@ -76,8 +76,11 @@ func newHTTPMonitorHostJob(
 	return jobs.MakeSimpleJob(func(event *beat.Event) error {
 		var redirects []string
 		// by John
-		// add async
-		eventext.MergeEventFields(event, mapstr.M{"async": &config.Async})
+		// add async TODO: add sync
+		if config.Sync.Enabled {
+			config.Sync.Bid = config.ID + time.Now().Format("200601021504")
+		}
+		eventext.MergeEventFields(event, mapstr.M{"async": &config.Async, "sync": &config.Sync})
 		client := &http.Client{
 			// Trace visited URLs when redirects occur
 			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects),

@@ -46,8 +46,10 @@ type Config struct {
 	Transport httpcommon.HTTPTransportSettings `config:",inline"`
 
 	// by John
+	ID    string      `config:"id" yaml:"id" json:"id"`
 	Retry retryConfig `config:"retry" yaml:"retry,omitempty" json:"retry,omitempty"`
 	Async asyncConfig `config:"async" yaml:"async,omitempty" json:"async,omitempty"`
+	Sync  syncConfig  `config:"sync" yaml:"sync,omitempty" json:"sync,omitempty"`
 }
 
 // by John
@@ -63,6 +65,11 @@ type asyncConfig struct {
 	Bid     string `config:"bid" yaml:"bid,omitempty" json:"bid,omitempty"`
 }
 
+// Sync settings
+type syncConfig struct {
+	Enabled bool   `config:"enabled" yaml:"enabled" json:"enabled"`
+	Bid     string `config:"bid" yaml:"bid,omitempty" json:"bid,omitempty"`
+}
 type responseConfig struct {
 	IncludeBody         string `config:"include_body"`
 	IncludeBodyMaxBytes int    `config:"include_body_max_bytes"`
