@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/elastic/beats/v7/ax/client/common"
 	"github.com/elastic/beats/v7/libbeat/cfgfile"
+	"github.com/elastic/beats/v7/libbeat/common/reload"
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 
@@ -19,6 +21,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) Do(msg string) {
 
+	wg := &sync.WaitGroup{}
 	if !strings.Contains(msg, "action") {
 		d.log.Errorf("消息异常")
 		fmt.Println("消息异常：", msg)
@@ -90,13 +93,15 @@ func (d *Dispatcher) Do(msg string) {
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			go func() {
-				for _, asyncjobConfig := range asyncjobConfigs {
+			for _, asyncjobConfig := range asyncjobConfigs {
+				wg.Add(1)
+				go func(asyncjobConfig *reload.ConfigWithMeta) {
+					defer wg.Done()
 					cfgfile.MonitorList().StartRunner(asyncjobConfig)
 					time.Sleep(40 * time.Second)
 					cfgfile.MonitorList().StopRunner(asyncjobConfig)
-				}
-			}()
+				}(asyncjobConfig)
+			}
 		}
 
 	case "change":

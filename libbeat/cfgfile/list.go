@@ -215,6 +215,8 @@ func (r *RunnerList) StopRunner(cfg *reload.ConfigWithMeta) {
 	if hash, err := HashConfig(cfg.Config); err == nil {
 
 		if r.Has(hash) {
+			r.mutex.RLock()
+			defer r.mutex.RUnlock()
 			runner := r.runners[hash]
 			delete(r.runners, hash)
 			go runner.Stop()
