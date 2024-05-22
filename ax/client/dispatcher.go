@@ -13,6 +13,8 @@ import (
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 
+var mutex sync.RWMutex
+
 type Dispatcher struct {
 	Path string
 	log  *logp.Logger
@@ -20,7 +22,7 @@ type Dispatcher struct {
 
 func (d *Dispatcher) Do(msg string) {
 
-	wg := &sync.WaitGroup{}
+	// wg := &sync.WaitGroup{}
 	if !strings.Contains(msg, "action") {
 		d.log.Errorf("消息异常")
 		fmt.Println("消息异常：", msg)
@@ -92,15 +94,15 @@ func (d *Dispatcher) Do(msg string) {
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			for _, asyncjobConfig := range asyncjobConfigs {
-				wg.Add(1)
-				// go func(asyncjobConfig *reload.ConfigWithMeta) {
-				// defer wg.Done()
-				cfgfile.MonitorList().StartRunner(asyncjobConfig)
-				time.Sleep(40 * time.Second)
-				cfgfile.MonitorList().StopRunner(asyncjobConfig)
-				// }(asyncjobConfig)
-			}
+			go func() {
+				for _, asyncjobConfig := range asyncjobConfigs {
+					cfgfile.MonitorList().StartRunner(asyncjobConfig)
+					time.Sleep(50 * time.Second)
+					mutex.Lock()
+					defer mutex.Unlock()
+					cfgfile.MonitorList().StopRunner(asyncjobConfig)
+				}
+			}()
 		}
 
 	case "change":
