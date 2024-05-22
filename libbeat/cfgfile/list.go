@@ -194,6 +194,8 @@ func createRunner(factory RunnerFactory, pipeline beat.PipelineConnector, cfg *r
 func (r *RunnerList) StartRunner(cfg *reload.ConfigWithMeta) {
 	if hash, err := HashConfig(cfg.Config); err == nil {
 
+		r.mutex.RLock()
+		defer r.mutex.RUnlock()
 		if r.Has(hash) {
 			return
 		}
