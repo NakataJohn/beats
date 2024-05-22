@@ -10,7 +10,6 @@ import (
 
 	"github.com/elastic/beats/v7/ax/client/common"
 	"github.com/elastic/beats/v7/libbeat/cfgfile"
-	"github.com/elastic/beats/v7/libbeat/common/reload"
 	"github.com/elastic/elastic-agent-libs/logp"
 )
 
@@ -21,7 +20,6 @@ type Dispatcher struct {
 
 func (d *Dispatcher) Do(msg string) {
 
-	var mutex sync.RWMutex
 	wg := &sync.WaitGroup{}
 	if !strings.Contains(msg, "action") {
 		d.log.Errorf("消息异常")
@@ -96,14 +94,12 @@ func (d *Dispatcher) Do(msg string) {
 		} else {
 			for _, asyncjobConfig := range asyncjobConfigs {
 				wg.Add(1)
-				go func(asyncjobConfig *reload.ConfigWithMeta) {
-					defer wg.Done()
-					cfgfile.MonitorList().StartRunner(asyncjobConfig)
-					time.Sleep(40 * time.Second)
-					mutex.Lock()
-					cfgfile.MonitorList().StopRunner(asyncjobConfig)
-					mutex.Unlock()
-				}(asyncjobConfig)
+				// go func(asyncjobConfig *reload.ConfigWithMeta) {
+				// defer wg.Done()
+				cfgfile.MonitorList().StartRunner(asyncjobConfig)
+				time.Sleep(40 * time.Second)
+				cfgfile.MonitorList().StopRunner(asyncjobConfig)
+				// }(asyncjobConfig)
 			}
 		}
 
