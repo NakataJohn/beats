@@ -96,11 +96,13 @@ func (d *Dispatcher) Do(msg string) {
 		} else {
 			go func() {
 				for _, asyncjobConfig := range asyncjobConfigs {
+					mutex.Lock()
 					cfgfile.MonitorList().StartRunner(asyncjobConfig)
+					mutex.Unlock()
 					time.Sleep(50 * time.Second)
 					mutex.Lock()
-					defer mutex.Unlock()
 					cfgfile.MonitorList().StopRunner(asyncjobConfig)
+					mutex.Unlock()
 				}
 			}()
 		}
