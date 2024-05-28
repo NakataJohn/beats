@@ -12,7 +12,8 @@ type STCP struct {
 }
 
 type Monitor struct {
-	STCP STCP
-	Name string
-	Path string `config:"heartbeat.config.monitors.path"`
+	STCP  STCP
+	Name  string
+	Path  string `config:"heartbeat.config.monitors.path"`
+	Proxy string `config:"proxy_url" yaml:"proxy_url,omitempty" json:"proxy_url,omitempty"`
 }

@@ -88,6 +88,9 @@ func (d *Dispatcher) Do(msg string) {
 	// by john add asyncjob
 	// TODO 异步监测任务
 	case "async":
+		// 添加代理
+		_action.Data[0]["proxy_url"] = m.Proxy
+
 		// 检查数据
 		// 加入监控
 		asyncjobConfigs, err := common.LoadConfigsFromDict(_action.Data)

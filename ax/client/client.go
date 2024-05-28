@@ -82,8 +82,9 @@ func (c AXClient) Connect() {
 	wd.Watch(netty.NewBootstrap(netty.WithClientInitializer(clientInitializer)))
 }
 
+var m = config.Monitor{}
+
 func Start(cfg *bc.C) {
-	var m = config.Monitor{}
 	cfg.Unpack(&m)
 	//转换为全路径
 	var fullPath = common.DirPath(m.Path)
