@@ -579,16 +579,19 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, confi
 		// 异常状态码返回时errReason有为空的情况，需要具体判断状态码；
 		// TODO: 涉及自定义状态码的情况需要解决。
 		var code_err error
-		if len(config.Status) > 0 {
-			code_err = checkStausCodes(resp, config.Status)
-		} else {
-			code_err = checkStatusOK(resp)
+		if resp != nil {
+			if len(config.Status) > 0 {
+				code_err = checkStausCodes(resp, config.Status)
+			} else {
+				code_err = checkStatusOK(resp)
+			}
 		}
 
 		if resp != nil && errReason == nil && code_err == nil {
 			resultChan <- result
 			return
 		}
+
 		if retries != retry.Retries {
 			time.Sleep(retry.WaitTime)
 		}
