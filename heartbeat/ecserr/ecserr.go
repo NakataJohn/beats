@@ -121,6 +121,14 @@ func NewConnectFailedErr(err error) *ECSErr {
 	)
 }
 
+func NewNetWorkFailedErr(err error) *ECSErr {
+	return NewECSErr(
+		TYPE_IO,
+		"CONNECTION_RESET_BY_SERVER",
+		fmt.Sprintf(`Connect failure %s`, err.Error()),
+	)
+}
+
 func NewRouteFailedErr(err error) *ECSErr {
 	return NewECSErr(
 		TYPE_IO,
