@@ -76,7 +76,7 @@ func newHTTPMonitorHostJob(
 	return jobs.MakeSimpleJob(func(event *beat.Event) error {
 		var redirects []string
 		// by John
-		// add async TODO: add sync
+		// add async & sync
 		if config.Sync.Enabled {
 			config.Sync.Bid = config.ID + time.Now().Format("200601021504")
 		}
@@ -93,7 +93,7 @@ func newHTTPMonitorHostJob(
 			return fmt.Errorf("could not make http request: %w", err)
 		}
 
-		_, err = execPing(event, client, req, body, traceInfo, &config.Retry, config.Transport.Timeout, validator, config.Response)
+		_, err = execPing(event, client, req, body, traceInfo, &config.Check.Response, &config.Retry, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
 		}
@@ -190,7 +190,7 @@ func createPingFactory(
 			// Transport:     httpcommon.HeaderRoundTripper(transport, map[string]string{"User-Agent": userAgent}),
 		}
 
-		end, err := execPing(event, client, req, body, traceInfo, &config.Retry, timeout, validator, config.Response)
+		end, err := execPing(event, client, req, body, traceInfo, &config.Check.Response, &config.Retry, timeout, validator, config.Response)
 		cbMutex.Lock()
 		defer cbMutex.Unlock()
 
@@ -240,13 +240,13 @@ func buildRequest(addr string, config *Config, enc contentEncoder) (*http.Reques
 	return request, nil
 }
 
-// TODO exec retry
 func execPing(
 	event *beat.Event,
 	client *http.Client,
 	req *http.Request,
 	reqBody []byte,
 	traceInfo *traceInfos,
+	respCfg *responseParameters,
 	retry *retryConfig, //by John
 	timeout time.Duration,
 	validator multiValidator,
@@ -308,7 +308,7 @@ func execPing(
 	resultChan := make(chan *respResult)
 
 	// 启动sendHTTPRequest的goroutine执行HTTP请求
-	go sendHTTPRequest(resultChan, timeout, retry, req, traceInfo, reqBody, client)
+	go sendHTTPRequest(resultChan, timeout, respCfg, retry, req, traceInfo, reqBody, client)
 
 	// 使用select语句从resultChan中读取数据
 	select {
@@ -547,7 +547,7 @@ func dnstrace(req *http.Request, traceInfo *traceInfos) error {
 }
 
 // 发送HTTP请求
-func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, retry *retryConfig, req *http.Request, traceInfo *traceInfos, reqBody []byte, client *http.Client) {
+func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, config *responseParameters, retry *retryConfig, req *http.Request, traceInfo *traceInfos, reqBody []byte, client *http.Client) {
 	var (
 		result     *respResult
 		errReason  reason.Reason
@@ -576,7 +576,16 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, retry
 			errReason:  errReason,
 		}
 
-		if resp != nil && errReason == nil {
+		// 异常状态码返回时errReason有为空的情况，需要具体判断状态码；
+		// TODO: 涉及自定义状态码的情况需要解决。
+		var code_err error
+		if len(config.Status) > 0 {
+			code_err = checkStausCodes(resp, config.Status)
+		} else {
+			code_err = checkStatusOK(resp)
+		}
+
+		if resp != nil && errReason == nil && code_err == nil {
 			resultChan <- result
 			return
 		}
