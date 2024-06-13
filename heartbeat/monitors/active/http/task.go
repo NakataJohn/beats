@@ -461,7 +461,7 @@ func execRequest(client *http.Client, traceInfo *traceInfos, req *http.Request) 
 			err = ecserr.NewConnectFailedErr(err)
 		} else if strings.Contains(err.Error(), "no route to host") {
 			err = ecserr.NewRouteFailedErr(err)
-		} else if strings.Contains(err.Error(), "Connection Reset By Peer") || strings.Contains(err.Error(), "EOF") {
+		} else if strings.Contains(err.Error(), "connection reset by peer") || strings.Contains(err.Error(), "EOF") {
 			err = ecserr.NewNetWorkFailedErr(err)
 		}
 		return start, traceInfo, nil, reason.IOFailed(err)
