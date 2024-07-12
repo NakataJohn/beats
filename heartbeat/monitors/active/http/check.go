@@ -82,7 +82,6 @@ func makeValidateResponse(config *responseParameters) (multiValidator, error) {
 		respValidators = append(respValidators, checkStatus(config.Status))
 	} else if len(config.BadStatus) > 0 {
 		respValidators = append(respValidators, checkBadStatus(config.BadStatus))
-		respValidators = append(respValidators, checkStatusOK)
 	} else {
 		respValidators = append(respValidators, checkStatusOK)
 	}
@@ -119,7 +118,9 @@ func checkStatus(status []uint16) respValidator {
 				return nil
 			}
 		}
-		return fmt.Errorf("received status code %v expecting %v", r.StatusCode, status)
+		// 白名单检查之后也需要按HTTP规范检查；
+		// return fmt.Errorf("received status code %v expecting %v", r.StatusCode, status)
+		return checkStatusOK(r)
 	}
 }
 
@@ -128,10 +129,10 @@ func checkBadStatus(status []uint16) respValidator {
 	return func(r *http.Response) error {
 		for _, v := range status {
 			if r.StatusCode == int(v) {
-				return fmt.Errorf("received status code %v expecting %v", r.StatusCode, status)
+				return fmt.Errorf("received status code %v had hitted black list %v", r.StatusCode, status)
 			}
 		}
-		return nil
+		return checkStatusOK(r)
 	}
 }
 
@@ -142,7 +143,8 @@ func checkStausCodes(r *http.Response, status []uint16) error {
 			return nil
 		}
 	}
-	return ecserr.NewBadHTTPStatusErr(r.StatusCode)
+	// return ecserr.NewBadHTTPStatusErr(r.StatusCode)
+	return checkStatusOK(r)
 }
 
 // 状态码黑名单

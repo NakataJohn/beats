@@ -577,7 +577,7 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, confi
 		}
 
 		// 异常状态码返回时errReason有为空的情况，需要具体判断状态码；
-		// // TODO: 涉及自定义状态码的情况需要解决。
+		// DEBUG: 涉及自定义状态码的情况if判断条件不合实际业务场景。
 		// 处理自定义状态码的黑白名单；
 		var code_err error
 		if resp != nil {
