@@ -584,7 +584,7 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, confi
 			if len(config.Status) > 0 {
 				code_err = checkStausCodes(resp, config.Status)
 			} else if len(config.BadStatus) > 0 {
-				code_err = checkStausCodesBAD(resp, config.BadStatus)
+				code_err = checkBadStausCodes(resp, config.BadStatus)
 			} else {
 				code_err = checkStatusOK(resp)
 			}

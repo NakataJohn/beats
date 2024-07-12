@@ -82,6 +82,7 @@ func makeValidateResponse(config *responseParameters) (multiValidator, error) {
 		respValidators = append(respValidators, checkStatus(config.Status))
 	} else if len(config.BadStatus) > 0 {
 		respValidators = append(respValidators, checkBadStatus(config.BadStatus))
+		respValidators = append(respValidators, checkStatusOK)
 	} else {
 		respValidators = append(respValidators, checkStatusOK)
 	}
@@ -145,13 +146,13 @@ func checkStausCodes(r *http.Response, status []uint16) error {
 }
 
 // 状态码黑名单
-func checkStausCodesBAD(r *http.Response, status []uint16) error {
+func checkBadStausCodes(r *http.Response, status []uint16) error {
 	for _, v := range status {
 		if r.StatusCode == int(v) {
 			return ecserr.NewBadHTTPStatusErr(r.StatusCode)
 		}
 	}
-	return nil
+	return checkStatusOK(r)
 }
 
 func checkStatusOK(r *http.Response) error {
