@@ -577,11 +577,14 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, confi
 		}
 
 		// 异常状态码返回时errReason有为空的情况，需要具体判断状态码；
-		// TODO: 涉及自定义状态码的情况需要解决。
+		// // TODO: 涉及自定义状态码的情况需要解决。
+		// 处理自定义状态码的黑白名单；
 		var code_err error
 		if resp != nil {
 			if len(config.Status) > 0 {
 				code_err = checkStausCodes(resp, config.Status)
+			} else if len(config.BadStatus) > 0 {
+				code_err = checkStausCodesBAD(resp, config.BadStatus)
 			} else {
 				code_err = checkStatusOK(resp)
 			}

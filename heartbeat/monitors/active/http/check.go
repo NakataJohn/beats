@@ -77,8 +77,11 @@ func makeValidateResponse(config *responseParameters) (multiValidator, error) {
 	var respValidators []respValidator
 	var bodyValidators []bodyValidator
 
+	// // TODO: 添加状态码黑名单；
 	if len(config.Status) > 0 {
 		respValidators = append(respValidators, checkStatus(config.Status))
+	} else if len(config.BadStatus) > 0 {
+		respValidators = append(respValidators, checkBadStatus(config.BadStatus))
 	} else {
 		respValidators = append(respValidators, checkStatusOK)
 	}
@@ -119,6 +122,19 @@ func checkStatus(status []uint16) respValidator {
 	}
 }
 
+// 黑名单回调函数
+func checkBadStatus(status []uint16) respValidator {
+	return func(r *http.Response) error {
+		for _, v := range status {
+			if r.StatusCode == int(v) {
+				return fmt.Errorf("received status code %v expecting %v", r.StatusCode, status)
+			}
+		}
+		return nil
+	}
+}
+
+// 状态码白名单
 func checkStausCodes(r *http.Response, status []uint16) error {
 	for _, v := range status {
 		if r.StatusCode == int(v) {
@@ -126,6 +142,16 @@ func checkStausCodes(r *http.Response, status []uint16) error {
 		}
 	}
 	return ecserr.NewBadHTTPStatusErr(r.StatusCode)
+}
+
+// 状态码黑名单
+func checkStausCodesBAD(r *http.Response, status []uint16) error {
+	for _, v := range status {
+		if r.StatusCode == int(v) {
+			return ecserr.NewBadHTTPStatusErr(r.StatusCode)
+		}
+	}
+	return nil
 }
 
 func checkStatusOK(r *http.Response) error {

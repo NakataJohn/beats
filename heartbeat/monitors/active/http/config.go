@@ -92,6 +92,7 @@ type requestParameters struct {
 type responseParameters struct {
 	// expected HTTP response configuration
 	Status      []uint16             `config:"status"`
+	BadStatus   []uint16             `config:"bad_status"`
 	RecvHeaders map[string]string    `config:"headers"`
 	RecvBody    interface{}          `config:"body"`
 	RecvJSON    []*jsonResponseCheck `config:"json"`
