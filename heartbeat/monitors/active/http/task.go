@@ -581,10 +581,13 @@ func sendHTTPRequest(resultChan chan<- *respResult, timeout time.Duration, confi
 		// 处理自定义状态码的黑白名单；
 		var code_err error
 		if resp != nil {
-			if len(config.Status) > 0 {
-				code_err = checkStausCodes(resp, config.Status)
-			} else if len(config.BadStatus) > 0 {
-				code_err = checkBadStausCodes(resp, config.BadStatus)
+			if len(config.Status) > 0 || len(config.BadStatus) > 0 {
+				if len(config.Status) > 0 {
+					code_err = checkStausCodes(resp, config.Status)
+				}
+				if len(config.BadStatus) > 0 {
+					code_err = checkBadStausCodes(resp, config.BadStatus)
+				}
 			} else {
 				code_err = checkStatusOK(resp)
 			}
