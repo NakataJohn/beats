@@ -78,10 +78,13 @@ func makeValidateResponse(config *responseParameters) (multiValidator, error) {
 	var bodyValidators []bodyValidator
 
 	// // TODO: 添加状态码黑名单；
-	if len(config.Status) > 0 {
-		respValidators = append(respValidators, checkStatus(config.Status))
-	} else if len(config.BadStatus) > 0 {
-		respValidators = append(respValidators, checkBadStatus(config.BadStatus))
+	if len(config.Status) > 0 || len(config.BadStatus) > 0 {
+		if len(config.Status) > 0 {
+			respValidators = append(respValidators, checkStatus(config.Status))
+		}
+		if len(config.BadStatus) > 0 {
+			respValidators = append(respValidators, checkBadStatus(config.BadStatus))
+		}
 	} else {
 		respValidators = append(respValidators, checkStatusOK)
 	}
