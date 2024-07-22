@@ -75,6 +75,7 @@ func newHTTPMonitorHostJob(
 	)
 	return jobs.MakeSimpleJob(func(event *beat.Event) error {
 		var redirects []string
+		var reqcodes []int
 		// by John
 		// add async & sync
 		if config.Sync.Enabled {
@@ -83,7 +84,7 @@ func newHTTPMonitorHostJob(
 		eventext.MergeEventFields(event, mapstr.M{"async": &config.Async, "sync": &config.Sync})
 		client := &http.Client{
 			// Trace visited URLs when redirects occur
-			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects),
+			CheckRedirect: makeCheckRedirect(config.MaxRedirects, &redirects, &reqcodes),
 			Timeout:       config.Transport.Timeout,
 			Transport:     transport,
 		}
@@ -96,6 +97,9 @@ func newHTTPMonitorHostJob(
 		_, err = execPing(event, client, req, body, traceInfo, &config.Check.Response, &config.Retry, config.Transport.Timeout, validator, config.Response)
 		if len(redirects) > 0 {
 			_, _ = event.PutValue("http.response.redirects", redirects)
+		}
+		if len(reqcodes) > 0 {
+			_, _ = event.PutValue("http.response.reqcodes", reqcodes)
 		}
 		return err
 	}), nil
@@ -165,7 +169,7 @@ func createPingFactory(
 		// We don't support redirects for IP jobs, so this effectively just
 		// prevents following redirects in this case, we know that
 		// config.MaxRedirects must be zero to even be here
-		checkRedirect := makeCheckRedirect(0, nil)
+		checkRedirect := makeCheckRedirect(0, nil, nil)
 		// transport := &SimpleTransport{
 		//	Dialer: dialer,
 		// 	OnStartWrite: func() {
@@ -499,7 +503,7 @@ func splitHostnamePort(addr string) (string, uint16, error) {
 // makeCheckRedirect checks if max redirects are exceeded, also append to the redirects list if we're tracking those.
 // It's kind of ugly to return a result via a pointer argument, but it's the interface the
 // golang HTTP client gives us.
-func makeCheckRedirect(max int, redirects *[]string) func(*http.Request, []*http.Request) error {
+func makeCheckRedirect(max int, redirects *[]string, reqcodes *[]int) func(*http.Request, []*http.Request) error {
 	if max == 0 {
 		return func(_ *http.Request, _ []*http.Request) error {
 			return http.ErrUseLastResponse
@@ -509,6 +513,8 @@ func makeCheckRedirect(max int, redirects *[]string) func(*http.Request, []*http
 	return func(r *http.Request, via []*http.Request) error {
 		if redirects != nil {
 			*redirects = append(*redirects, r.URL.String())
+			*reqcodes = append(*reqcodes, r.Response.StatusCode)
+
 		}
 
 		if max == len(via) {
