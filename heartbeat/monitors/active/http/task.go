@@ -512,6 +512,8 @@ func makeCheckRedirect(max int, redirects *[]string, reqcodes *[]int) func(*http
 
 	return func(r *http.Request, via []*http.Request) error {
 		if redirects != nil {
+			r.URL.RawQuery = queryEscape(r.URL.RawQuery)
+			r.URL.Path = pathEscape(r.URL.Path)
 			*redirects = append(*redirects, r.URL.String())
 			*reqcodes = append(*reqcodes, r.Response.StatusCode)
 
@@ -522,6 +524,16 @@ func makeCheckRedirect(max int, redirects *[]string, reqcodes *[]int) func(*http
 		}
 		return nil
 	}
+}
+
+// by john
+// blank space in uri is illegal as for RFC 3986.
+// add function to escape query and path.
+func queryEscape(rawLocation string) string {
+	return strings.ReplaceAll(rawLocation, " ", "+")
+}
+func pathEscape(rawLocation string) string {
+	return strings.ReplaceAll(rawLocation, " ", "%20")
 }
 
 func dnstrace(req *http.Request, traceInfo *traceInfos) error {
